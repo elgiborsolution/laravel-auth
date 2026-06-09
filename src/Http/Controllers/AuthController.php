@@ -90,11 +90,12 @@ class AuthController extends Controller
         
         unset($userData['id']);
 
-        return $this->successResponse('Login successful', [
-            'access_token' => $tokenResult->accessToken,
-            'token_type' => 'Bearer',
-            'user' => $userData,
-        ]);
+        return response()->json([
+            'token' => $tokenResult->accessToken, 
+            'data' => [
+                'user' => $userData,
+            ]
+        ], 200);
     }
 
     /**
