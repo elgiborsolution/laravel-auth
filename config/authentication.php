@@ -32,6 +32,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Login Identifier Fields
+    |--------------------------------------------------------------------------
+    |
+    | Define which fields can be used as the login identifier.
+    | The user can send any one of these fields in the login payload.
+    | Supported values: 'email', 'username', or both.
+    |
+    | If ['email'] => payload must contain 'email'
+    | If ['username'] => payload must contain 'username'
+    | If ['email', 'username'] => payload can contain either 'email' or 'username'
+    |
+    */
+
+    'login_fields' => ['email'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Login Extra Fields (Single-Database Multi-Tenancy Support)
     |--------------------------------------------------------------------------
     |
