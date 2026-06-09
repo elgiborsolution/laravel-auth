@@ -152,7 +152,7 @@ class User extends Authenticatable {
 Submit credentials to retrieve your access token:
 
 ```bash
-curl -X POST http://your-app/api/auth/login \
+curl -X POST http://your-app/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@example.com",
@@ -187,13 +187,19 @@ curl -X POST http://your-app/api/auth/roles \
 ## API Reference
 
 ### Public Authentication Routes
-All routes are prefixed with `/api/auth` (configurable) and use configured middleware.
+The login route is public and has '/auth' stripped from the prefix.
 
 | Method | Endpoint | Description | Request Body |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/login` | Authenticate user and issue token | `email`, `password`, + `login_extra_fields` |
-| **GET** | `/me` | Get current user profile (with roles/tenant) | — *(Requires Authorization Header)* |
-| **POST** | `/logout` | Revoke the current access token | — *(Requires Authorization Header)* |
+| **POST** | `/api/login` | Authenticate user and issue token | `email`, `password`, + `login_extra_fields` |
+
+### Protected Authentication Routes
+These routes require the `auth:api` middleware and are prefixed with `/api/auth`.
+
+| Method | Endpoint | Description | Request Body |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/api/auth/me` | Get current user profile (with roles/tenant) | — *(Requires Authorization Header)* |
+| **POST** | `/api/auth/logout` | Revoke the current access token | — *(Requires Authorization Header)* |
 
 ### Authorization Admin Routes
 All routes require the `auth:api` middleware.

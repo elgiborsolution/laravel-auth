@@ -44,8 +44,7 @@ class AuthenticationServiceProvider extends ServiceProvider
      */
     protected function registerRoutes()
     {
-        Route::prefix(config('authentication.prefix', 'api/auth'))
-            ->middleware(config('authentication.middleware', ['api']))
+        Route::middleware(config('authentication.middleware', ['api']))
             ->group(function () {
                 $this->loadRoutesFrom(__DIR__.'/../../routes/api.php');
             });

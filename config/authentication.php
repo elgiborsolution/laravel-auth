@@ -8,8 +8,10 @@ return [
     |--------------------------------------------------------------------------
     |
     | This value determines the prefix for the authentication API routes.
-    | By default, it is set to 'api/auth', which means your routes will
-    | be accessible at /api/auth/login, /api/auth/logout, etc.
+    | By default, it is set to 'api/auth', which means your protected routes
+    | will be accessible at /api/auth/me, /api/auth/logout, etc.
+    | Public routes (like login) will automatically strip the '/auth' part,
+    | e.g. /api/login.
     |
     */
 
