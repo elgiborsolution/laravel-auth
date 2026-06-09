@@ -53,11 +53,8 @@ class InstallCommand extends Command
             $files = File::files($migrationPath);
             foreach ($files as $file) {
                 $filename = $file->getFilename();
-                // Move our package and passport migrations
-                if (strpos($filename, 'create_roles_table') !== false ||
-                    strpos($filename, 'create_permissions_table') !== false ||
-                    strpos($filename, 'create_role_permissions_table') !== false ||
-                    strpos($filename, 'create_oauth_') !== false) {
+                // Move Passport migrations to tenant migrations
+                if (strpos($filename, 'create_oauth_') !== false) {
                     File::move($file->getPathname(), $tenantPath . '/' . $filename);
                 }
             }
