@@ -21,10 +21,47 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        $loginFields = config('authentication.login_fields', ['email']);
+
+        // Determine which login field the user is sending
+        $loginField = null;
+        foreach ($loginFields as $field) {
+            if ($request->has($field)) {
+                $loginField = $field;
+                break;
+            }
+        }
+
+        // Build validation rules
         $rules = [
-            'email' => 'required|email',
             'password' => 'required|string',
         ];
+
+        if (count($loginFields) > 1) {
+            // Multiple login fields configured: require at least one
+            if ($loginField === null) {
+                return $this->errorResponse(
+                    [implode('/', $loginFields) => ['One of ' . implode(', ', $loginFields) . ' is required.']],
+                    422,
+                    'Validation Error'
+                );
+            }
+
+            // Apply field-specific validation
+            if ($loginField === 'email') {
+                $rules[$loginField] = 'required|email';
+            } else {
+                $rules[$loginField] = 'required|string';
+            }
+        } else {
+            // Single login field configured
+            $loginField = $loginFields[0];
+            if ($loginField === 'email') {
+                $rules[$loginField] = 'required|email';
+            } else {
+                $rules[$loginField] = 'required|string';
+            }
+        }
 
         // Merge extra login fields from config (e.g., for multi-tenancy)
         $extraFields = config('authentication.login_extra_fields', []);
@@ -38,7 +75,7 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors(), 422, 'Validation Error');
         }
 
-        $credentials = $request->only(array_merge(['email', 'password'], $extraFields));
+        $credentials = $request->only(array_merge([$loginField, 'password'], $extraFields));
 
         if (!Auth::attempt($credentials)) {
             return $this->errorResponse(['auth' => ['Invalid credentials']], 401, 'Unauthorized');
