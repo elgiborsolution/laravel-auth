@@ -106,7 +106,7 @@ This package is designed to work seamlessly with `stancl/tenancy` for database-p
 
 ### Automated Integration
 If you run `php artisan elgibor-auth:install` and select **"Yes"** for `stancl/tenancy`:
-- The package will automatically move `oauth_*`, `roles`, and `permissions` migrations into `database/migrations/tenant/`.
+- The package will automatically move `oauth_*` migrations into `database/migrations/tenant/` (roles and permissions migrations remain in the central database).
 - It will generate central Passport keys without forcing client creation on the central DB.
 
 ### 1. Register Tenant Middleware
