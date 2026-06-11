@@ -82,6 +82,24 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
+
+        // Dispatch an event to allow applications to hook into the authentication process.
+        // Listeners can return false, a string error message, or an array with error details to interrupt the login.
+        $responses = event(new \ElgiborSolution\Authentication\Events\UserAuthenticated($user, $request));
+
+        foreach ($responses as $response) {
+            if ($response === false) {
+                Auth::logout();
+                return $this->errorResponse(['auth' => ['Login interrupted by custom checks.']], 401, 'Unauthorized');
+            } elseif (is_string($response)) {
+                Auth::logout();
+                return $this->errorResponse(['auth' => [$response]], 401, 'Unauthorized');
+            } elseif (is_array($response)) {
+                Auth::logout();
+                return $this->errorResponse($response, 401, 'Unauthorized');
+            }
+        }
+
         $tokenResult = $user->createToken('Personal Access Token');
         $token = $tokenResult->token;
         $token->save();
