@@ -2,10 +2,10 @@
 
 namespace ElgiborSolution\Authentication\Http\Controllers;
 
+use ElgiborSolution\Authentication\Models\Role;
+use ElgiborSolution\Authentication\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use ElgiborSolution\Authentication\Traits\ApiResponse;
-use ElgiborSolution\Authentication\Models\Role;
 use Illuminate\Support\Facades\Cache;
 
 class RoleController extends Controller
@@ -21,14 +21,14 @@ class RoleController extends Controller
         $perPage = $request->query('per_page', 15);
 
         // Cache key based on search and pagination
-        $cacheKey = "roles_list_{$search}_{$perPage}_page_" . $request->query('page', 1);
+        $cacheKey = "roles_list_{$search}_{$perPage}_page_".$request->query('page', 1);
 
         $roles = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($search, $perPage) {
             $query = Role::query();
 
             if ($search) {
                 $query->where('role_name', 'like', "%{$search}%")
-                      ->orWhere('role_description', 'like', "%{$search}%");
+                    ->orWhere('role_description', 'like', "%{$search}%");
             }
 
             return $query->paginate($perPage);
@@ -74,7 +74,7 @@ class RoleController extends Controller
             return Role::with('permissions')->find($id);
         });
 
-        if (!$role) {
+        if (! $role) {
             return $this->errorResponse('Role not found', 404);
         }
 
@@ -88,12 +88,12 @@ class RoleController extends Controller
     {
         $role = Role::find($id);
 
-        if (!$role) {
+        if (! $role) {
             return $this->errorResponse('Role not found', 404);
         }
 
         $validated = $request->validate([
-            'role_name' => 'sometimes|required|string|max:150|unique:roles,role_name,' . $role->id,
+            'role_name' => 'sometimes|required|string|max:150|unique:roles,role_name,'.$role->id,
             'role_description' => 'nullable|string|max:150',
             'default' => 'boolean',
             'can_delete' => 'boolean',
@@ -120,11 +120,11 @@ class RoleController extends Controller
     {
         $role = Role::find($id);
 
-        if (!$role) {
+        if (! $role) {
             return $this->errorResponse('Role not found', 404);
         }
 
-        if (!$role->can_delete) {
+        if (! $role->can_delete) {
             return $this->errorResponse('This role is protected and cannot be deleted', 403);
         }
 

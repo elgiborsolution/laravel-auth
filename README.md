@@ -17,6 +17,7 @@ Build secure, scalable API authentication processes with built-in role & permiss
   - [2. Authenticate](#2-authenticate)
   - [3. Fetch User Profile](#3-fetch-user-profile)
   - [4. Manage Roles & Permissions](#4-manage-roles--permissions)
+- [Advanced: Custom Login Validation](#advanced-custom-login-validation)
 - [API Reference](#api-reference)
   - [Public Authentication Routes](#public-authentication-routes)
   - [Authorization Admin Routes](#authorization-admin-routes)
@@ -180,6 +181,72 @@ curl -X POST http://your-app/api/auth/roles \
     "role_description": "Store manager",
     "permissions": [1, 2, 5]
   }'
+```
+
+---
+
+## Advanced: Custom Login Validation
+
+If you need to validate custom logic (e.g., checking if a user belongs to a specific `tenant_id`, checking subscription status, or verifying account activation) *after* the email/password succeeds but *before* the token is generated, you can listen to the `UserAuthenticated` event.
+
+### 1. Create a Listener in Your Project
+
+Generate a listener in your application (not inside the package):
+
+```bash
+php artisan make:listener CheckCustomLoginRules
+```
+
+### 2. Implement the Listener Logic
+
+Open your new listener and use the `UserAuthenticated` event. You have full access to the `$user` and the `$request` payload. 
+
+```php
+namespace App\Listeners;
+
+use ElgiborSolution\Authentication\Events\UserAuthenticated;
+
+class CheckCustomLoginRules
+{
+    public function handle(UserAuthenticated $event)
+    {
+        $user = $event->user;
+        $request = $event->request;
+
+        // Example 1: Read a payload from the request
+        $tenantId = $request->input('tenant_id');
+
+        if ($tenantId && !$user->tenants()->where('tenant_id', $tenantId)->exists()) {
+            // Return an array for structured validation errors. This will cancel the login.
+            return ['tenant_id' => ['You do not have access to this workspace.']];
+        }
+
+        // Example 2: Check user status
+        if (!$user->is_active) {
+            // Return a string for a generic error message. This will cancel the login.
+            return "Your account is disabled.";
+        }
+        
+        // Example 3: Return boolean false
+        // return false; // Returns a default "Login interrupted by custom checks." error.
+
+        // If all checks pass, return null/void to let the package issue the token.
+    }
+}
+```
+
+### 3. Register the Listener
+Register the listener in your `EventServiceProvider`:
+
+```php
+use ElgiborSolution\Authentication\Events\UserAuthenticated;
+use App\Listeners\CheckCustomLoginRules;
+
+protected $listen = [
+    UserAuthenticated::class => [
+        CheckCustomLoginRules::class,
+    ],
+];
 ```
 
 ---
