@@ -2,12 +2,14 @@
 
 namespace ElgiborSolution\Authentication\Http\Controllers;
 
+use ElgiborSolution\Authentication\Events\UserAuthenticated;
+use ElgiborSolution\Authentication\Http\Resources\UserResource;
+use ElgiborSolution\Authentication\Traits\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Routing\Controller;
-use ElgiborSolution\Authentication\Traits\ApiResponse;
-use ElgiborSolution\Authentication\Http\Resources\UserResource;
 
 class AuthController extends Controller
 {
@@ -16,8 +18,7 @@ class AuthController extends Controller
     /**
      * Handle user login and token generation.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function login(Request $request)
     {
@@ -41,7 +42,7 @@ class AuthController extends Controller
             // Multiple login fields configured: require at least one
             if ($loginField === null) {
                 return $this->errorResponse(
-                    [implode('/', $loginFields) => ['One of ' . implode(', ', $loginFields) . ' is required.']],
+                    [implode('/', $loginFields) => ['One of '.implode(', ', $loginFields).' is required.']],
                     422,
                     'Validation Error'
                 );
@@ -77,7 +78,7 @@ class AuthController extends Controller
 
         $credentials = $request->only(array_merge([$loginField, 'password'], $extraFields));
 
-        if (!Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             return $this->errorResponse(['auth' => ['Invalid credentials']], 401, 'Unauthorized');
         }
 
@@ -85,42 +86,56 @@ class AuthController extends Controller
 
         // Dispatch an event to allow applications to hook into the authentication process.
         // Listeners can return false, a string error message, or an array with error details to interrupt the login.
-        $responses = event(new \ElgiborSolution\Authentication\Events\UserAuthenticated($user, $request));
+        $responses = event(new UserAuthenticated($user, $request));
 
         foreach ($responses as $response) {
             if ($response === false) {
                 Auth::logout();
+
                 return $this->errorResponse(['auth' => ['Login interrupted by custom checks.']], 401, 'Unauthorized');
             } elseif (is_string($response)) {
                 Auth::logout();
+
                 return $this->errorResponse(['auth' => [$response]], 401, 'Unauthorized');
             } elseif (is_array($response)) {
                 Auth::logout();
+
                 return $this->errorResponse($response, 401, 'Unauthorized');
             }
         }
 
-        $tokenResult = $user->createToken('Personal Access Token');
-        $token = $tokenResult->token;
-        $token->save();
+        $isTwoStep = config('authentication.two_step_login.enabled', false);
+
+        // Use 'central' scope when two-step is enabled so tenantLogin() can verify token origin
+        $tokenResult = $isTwoStep
+            ? $user->createToken('central-access', ['central'])
+            : $user->createToken('Personal Access Token');
+
+        $tokenResult->token->save();
 
         $userData = $user->toArray();
-        
         unset($userData['id']);
 
+        $responseData = ['user' => $userData];
+
+        // Include accessible tenants in response when two-step is enabled
+        if ($isTwoStep && config('authentication.two_step_login.include_tenants_on_login', true)) {
+            $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
+            if (method_exists($user, $tenantRelation)) {
+                $responseData['tenants'] = $user->{$tenantRelation}()->get(['id', 'name'])->toArray();
+            }
+        }
+
         return response()->json([
-            'token' => $tokenResult->accessToken, 
-            'data' => [
-                'user' => $userData,
-            ]
+            'token' => $tokenResult->accessToken,
+            'data' => $responseData,
         ], 200);
     }
 
     /**
      * Handle user logout and revoke token.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function logout(Request $request)
     {
@@ -132,8 +147,7 @@ class AuthController extends Controller
     /**
      * Get authenticated user profile.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function me(Request $request)
     {
@@ -154,7 +168,7 @@ class AuthController extends Controller
             $loadRelations[] = $relation;
         }
 
-        if (!empty($loadRelations)) {
+        if (! empty($loadRelations)) {
             $user->load($loadRelations);
         }
 
@@ -162,5 +176,82 @@ class AuthController extends Controller
             'User information retrieved successfully',
             new UserResource($user)
         );
+    }
+
+    /**
+     * Handle second-step tenant login (Two-Step Login flow).
+     *
+     * Requires a valid central token (scope: central) obtained from POST /api/login.
+     * Validates the user has access to the requested tenant, then issues a
+     * tenant-scoped token.
+     *
+     * Request body:
+     *   - tenant_id (string, UUID): the tenant the user wants to switch into
+     *
+     * Response:
+     *   {
+     *     "token": "<tenant-scoped-token>",
+     *     "data": { "tenant": { ... } }
+     *   }
+     */
+    public function tenantLogin(Request $request): JsonResponse
+    {
+        // Gate: only central tokens (scope: central) may reach step 2
+        if (! $request->user()->tokenCan('central')) {
+            return $this->errorResponse(
+                ['token' => ['A central token is required. Please complete step 1 login first.']],
+                403,
+                'Forbidden'
+            );
+        }
+
+        $validator = Validator::make($request->all(), [
+            'tenant_id' => 'required|string|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422, 'Validation Error');
+        }
+
+        $user = $request->user();
+        $tenantId = $request->input('tenant_id');
+        $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
+
+        // Guard: ensure the relation exists on the User model
+        if (! method_exists($user, $tenantRelation)) {
+            return $this->errorResponse(
+                ['configuration' => ["Relation '{$tenantRelation}' not found on User model. Check 'two_step_login.tenant_relation' config."]],
+                500,
+                'Configuration Error'
+            );
+        }
+
+        // Check user actually has access to the requested tenant
+        $tenant = $user->{$tenantRelation}()
+            ->where('id', $tenantId)
+            ->first();
+
+        if (! $tenant) {
+            return $this->errorResponse(
+                ['tenant_id' => ['You do not have access to this tenant.']],
+                403,
+                'Forbidden'
+            );
+        }
+
+        // Create tenant-scoped token
+        // Scope format: tenant:{tenant_id} — allows CheckTenantAccess middleware to verify via tokenCan()
+        $tokenResult = $user->createToken(
+            "tenant-access:{$tenantId}",
+            ["tenant:{$tenantId}"]
+        );
+        $tokenResult->token->save();
+
+        return response()->json([
+            'token' => $tokenResult->accessToken,
+            'data' => [
+                'tenant' => $tenant->toArray(),
+            ],
+        ], 200);
     }
 }
