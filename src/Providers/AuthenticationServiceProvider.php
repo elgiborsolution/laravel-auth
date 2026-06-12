@@ -2,8 +2,10 @@
 
 namespace ElgiborSolution\Authentication\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use ElgiborSolution\Authentication\Console\InstallCommand;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 
 class AuthenticationServiceProvider extends ServiceProvider
 {
@@ -30,9 +32,17 @@ class AuthenticationServiceProvider extends ServiceProvider
         $this->registerPublishing();
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
 
+        // Register Passport scope for two-step login central token
+        // The 'central' scope gates access to POST /api/tenant-login (step 2)
+        if (config('authentication.two_step_login.enabled', false)) {
+            Passport::tokensCan([
+                'central' => 'Authenticate to central — required for tenant login (step 2)',
+            ]);
+        }
+
         if ($this->app->runningInConsole()) {
             $this->commands([
-                \ElgiborSolution\Authentication\Console\InstallCommand::class,
+                InstallCommand::class,
             ]);
         }
     }
