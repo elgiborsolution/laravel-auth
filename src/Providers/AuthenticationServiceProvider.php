@@ -32,11 +32,16 @@ class AuthenticationServiceProvider extends ServiceProvider
         $this->registerPublishing();
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
 
-        // Register Passport scope for two-step login central token
-        // The 'central' scope gates access to POST /api/tenant-login (step 2)
+        // Register Passport scopes for two-step login
+        // - 'central': marks a token as a central token (gates access to /api/tenant-login)
+        // - 'tenant' : marks a token as tenant-scoped
+        // NOTE: dynamic tenant:{id} scopes cannot be pre-registered in Passport 12+.
+        // Tenant binding security is enforced by the pivot access check in tenantLogin()
+        // and the CheckTenantAccess middleware on the app side.
         if (config('authentication.two_step_login.enabled', false)) {
             Passport::tokensCan([
                 'central' => 'Authenticate to central — required for tenant login (step 2)',
+                'tenant'  => 'Authenticate to a specific tenant',
             ]);
         }
 

@@ -122,7 +122,12 @@ class AuthController extends Controller
         if ($isTwoStep && config('authentication.two_step_login.include_tenants_on_login', true)) {
             $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
             if (method_exists($user, $tenantRelation)) {
-                $responseData['tenants'] = $user->{$tenantRelation}()->get(['id', 'name'])->toArray();
+                // Qualify columns with table name to avoid ambiguous column error on PostgreSQL
+                // (JOIN between tenants and pivot table causes ambiguity on bare 'id'/'name')
+                $relatedTable = $user->{$tenantRelation}()->getRelated()->getTable();
+                $responseData['tenants'] = $user->{$tenantRelation}()
+                    ->get(["{$relatedTable}.id", "{$relatedTable}.name"])
+                    ->toArray();
             }
         }
 
@@ -166,6 +171,14 @@ class AuthController extends Controller
         $loadRelationsFromConfig = config('authentication.load_relations', []);
         foreach ($loadRelationsFromConfig as $relation) {
             $loadRelations[] = $relation;
+        }
+
+        // Auto-load tenant relation when two-step login is enabled
+        if (config('authentication.two_step_login.enabled', false)) {
+            $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
+            if (method_exists($user, $tenantRelation) && ! in_array($tenantRelation, $loadRelations)) {
+                $loadRelations[] = $tenantRelation;
+            }
         }
 
         if (! empty($loadRelations)) {
@@ -227,8 +240,10 @@ class AuthController extends Controller
         }
 
         // Check user actually has access to the requested tenant
+        // Qualify 'id' with table name to avoid ambiguous column error on PostgreSQL (JOIN with pivot)
+        $relatedTable = $user->{$tenantRelation}()->getRelated()->getTable();
         $tenant = $user->{$tenantRelation}()
-            ->where('id', $tenantId)
+            ->where("{$relatedTable}.id", $tenantId)
             ->first();
 
         if (! $tenant) {
@@ -240,10 +255,13 @@ class AuthController extends Controller
         }
 
         // Create tenant-scoped token
-        // Scope format: tenant:{tenant_id} — allows CheckTenantAccess middleware to verify via tokenCan()
+        // Token name includes tenant_id for traceability/auditing.
+        // Scope is generic 'tenant' — Passport 12+ requires scopes pre-registered,
+        // so dynamic tenant:{id} scopes are not possible.
+        // Actual tenant binding security is already enforced by the pivot check above.
         $tokenResult = $user->createToken(
             "tenant-access:{$tenantId}",
-            ["tenant:{$tenantId}"]
+            ['tenant']
         );
         $tokenResult->token->save();
 
