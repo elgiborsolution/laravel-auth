@@ -24,6 +24,8 @@ class Role extends Model
         'default',
         'can_delete',
         'login_destination',
+        'context',
+        'is_active',
     ];
 
     /**
@@ -34,6 +36,7 @@ class Role extends Model
     protected $casts = [
         'default' => 'boolean',
         'can_delete' => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     /**

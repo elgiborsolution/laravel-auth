@@ -19,11 +19,12 @@ class PermissionController extends Controller
     {
         $search = $request->query('search');
         $perPage = $request->query('per_page', 15);
+        $page = $request->query('page');
 
         // Cache key based on search and pagination
-        $cacheKey = "permissions_list_{$search}_{$perPage}_page_" . $request->query('page', 1);
+        $cacheKey = "permissions_list_{$search}_{$perPage}_page_" . ($page ?? 'all');
 
-        $permissions = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($search, $perPage) {
+        $permissions = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($request, $search, $perPage) {
             $query = Permission::query();
 
             if ($search) {
@@ -31,10 +32,14 @@ class PermissionController extends Controller
                       ->orWhere('description', 'like', "%{$search}%");
             }
 
-            return $query->paginate($perPage);
+            if ($request->has('page') && ! empty($request->query('page'))) {
+                return $query->paginate($perPage);
+            }
+
+            return $query->get();
         });
 
-        return $this->successResponse($permissions, 'Permissions retrieved successfully');
+        return $this->successResponse('Permissions retrieved successfully', $permissions);
     }
 
     /**
@@ -53,6 +58,6 @@ class PermissionController extends Controller
 
         Cache::flush(); // Flush permissions cache
 
-        return $this->successResponse($permission, 'Permission status toggled successfully');
+        return $this->successResponse('Permission status toggled successfully', $permission);
     }
 }

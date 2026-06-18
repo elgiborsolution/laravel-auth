@@ -17,24 +17,39 @@ class RoleController extends Controller
      */
     public function index(Request $request)
     {
-        $search = $request->query('search');
+        $keyword = $request->query('keyword');
+        $context = $request->query('context');
+        $isActive = $request->query('is_active');
         $perPage = $request->query('per_page', 15);
+        $page = $request->query('page');
 
         // Cache key based on search and pagination
-        $cacheKey = "roles_list_{$search}_{$perPage}_page_".$request->query('page', 1);
+        $cacheKey = "roles_list_{$keyword}_{$context}_{$isActive}_{$perPage}_page_".($page ?? 'all');
 
-        $roles = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($search, $perPage) {
-            $query = Role::query();
+        $roles = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($request, $keyword, $context, $isActive, $perPage) {
+            $query = Role::with('permissions:id,name,description,status');
 
-            if ($search) {
-                $query->where('role_name', 'like', "%{$search}%")
-                    ->orWhere('role_description', 'like', "%{$search}%");
+            if ($context) {
+                $query->where('context', $context);
             }
 
-            return $query->paginate($perPage);
-        });
+            if ($isActive) {
+                $query->where('is_active', $isActive);
+            }
 
-        return $this->successResponse($roles, 'Roles retrieved successfully');
+            if ($keyword) {
+                $query->where('role_name', 'like', "%{$keyword}%")
+                    ->orWhere('role_description', 'like', "%{$keyword}%");
+            }
+
+            if ($request->has('page') && ! empty($request->query('page'))) {
+                return $query->paginate($perPage);
+            }
+
+            return $query->get();
+        });
+        
+        return $this->successResponse('Roles retrieved successfully', $roles);
     }
 
     /**
@@ -60,7 +75,7 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse($role->load('permissions'), 'Role created successfully', 201);
+        return $this->successResponse('Role created successfully', $role->load('permissions:id,name,description,status'), 201);
     }
 
     /**
@@ -71,14 +86,14 @@ class RoleController extends Controller
         $cacheKey = "role_detail_{$id}";
 
         $role = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($id) {
-            return Role::with('permissions')->find($id);
+            return Role::with('permissions:id,name,description,status')->find($id);
         });
 
         if (! $role) {
             return $this->errorResponse('Role not found', 404);
         }
 
-        return $this->successResponse($role, 'Role retrieved successfully');
+        return $this->successResponse('Role retrieved successfully', $role);
     }
 
     /**
@@ -110,7 +125,7 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse($role->load('permissions'), 'Role updated successfully');
+        return $this->successResponse('Role updated successfully', $role->load('permissions:id,name,description,status'));
     }
 
     /**
@@ -132,6 +147,22 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse(null, 'Role deleted successfully');
+        return $this->successResponse('Role deleted successfully', null);
+    }
+
+    public function status(Request $request)
+    {
+        $role = Role::find($request->id);
+
+        if (! $role) {
+            return $this->errorResponse('Role not found', 404);
+        }
+
+        $role->is_active = $request->is_active;
+        $role->save();
+
+        Cache::flush(); // Flush roles cache
+
+        return $this->successResponse('Role status updated successfully', $role);
     }
 }
