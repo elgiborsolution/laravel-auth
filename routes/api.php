@@ -18,10 +18,12 @@ Route::middleware('auth:api')->group(function () {
             config('authentication.two_step_login.tenant_login_path', 'api/tenant-login'),
             [AuthController::class, 'tenantLogin']
         );
+
     }
 
     // Roles
     Route::apiResource('api/roles', RoleController::class);
+    Route::put('api/roles/status/{id}', [RoleController::class, 'status']);
 
     // Permissions
     Route::apiResource('api/permissions', PermissionController::class)->only(['index']);
