@@ -18,18 +18,25 @@ class PermissionController extends Controller
     public function index(Request $request)
     {
         $search = $request->query('search');
+        $context = $request->query('context');
         $perPage = $request->query('per_page', 15);
         $page = $request->query('page');
 
-        // Cache key based on search and pagination
-        $cacheKey = "permissions_list_{$search}_{$perPage}_page_" . ($page ?? 'all');
+        // Cache key based on search, context and pagination
+        $cacheKey = "permissions_list_{$search}_{$context}_{$perPage}_page_" . ($page ?? 'all');
 
-        $permissions = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($request, $search, $perPage) {
+        $permissions = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($request, $search, $context, $perPage) {
             $query = Permission::query();
 
+            if ($context) {
+                $query->where('context', $context);
+            }
+
             if ($search) {
-                $query->where('name', 'like', "%{$search}%")
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
                       ->orWhere('description', 'like', "%{$search}%");
+                });
             }
 
             if ($request->has('page') && ! empty($request->query('page'))) {
