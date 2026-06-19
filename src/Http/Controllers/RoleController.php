@@ -20,7 +20,7 @@ class RoleController extends Controller
         $keyword = $request->query('keyword');
         $context = $request->query('context');
         $isActive = $request->query('is_active');
-        $perPage = $request->query('per_page', 15);
+        $perPage = $request->query('per_page');
         $page = $request->query('page');
 
         // Cache key based on search and pagination
