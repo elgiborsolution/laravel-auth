@@ -19,7 +19,7 @@ class PermissionController extends Controller
     {
         $search = $request->query('search');
         $context = $request->query('context');
-        $perPage = $request->query('per_page', 15);
+        $perPage = $request->query('per_page');
         $page = $request->query('page');
 
         // Cache key based on search, context and pagination
@@ -46,7 +46,7 @@ class PermissionController extends Controller
             return $query->get();
         });
 
-        return $this->successResponse('Permissions retrieved successfully', $permissions);
+        return $this->successResponse($permissions, 'Permissions retrieved successfully');
     }
 
     /**
