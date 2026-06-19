@@ -46,7 +46,7 @@ class PermissionController extends Controller
             return $query->get();
         });
 
-        return $this->successResponse($permissions, 'Permissions retrieved successfully');
+        return $this->successResponse('Permissions retrieved successfully', $permissions);
     }
 
     /**
