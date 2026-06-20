@@ -11,6 +11,7 @@ Route::middleware('auth:api')->group(function () {
     // Auth
     Route::post('api/logout', [AuthController::class, 'logout']);
     Route::get('api/me', [AuthController::class, 'me']);
+    Route::post('api/reset-password', [AuthController::class, 'resetPassword']);
 
     // Two-Step Login: step 2 (tenant login) — only registered when enabled
     if (config('authentication.two_step_login.enabled', false)) {

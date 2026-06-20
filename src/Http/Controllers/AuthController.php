@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
@@ -271,5 +272,28 @@ class AuthController extends Controller
                 'tenant' => $tenant->toArray(),
             ],
         ], 200);
+    }
+
+    /**
+     * Reset the authenticated user's password.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422, $validator->errors()->first());
+        }
+
+        $user = $request->user();
+        $user->password = Hash::make($request->input('password'));
+        $user->save();
+
+        return $this->successResponse('Password reset successfully');
     }
 }
