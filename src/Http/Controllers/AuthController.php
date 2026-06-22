@@ -105,6 +105,12 @@ class AuthController extends Controller
             }
         }
 
+        try {
+            $user->forceFill(['last_login_at' => now()])->save();
+        } catch (\Throwable $e) {
+            // Ignore if column does not exist yet or update fails
+        }
+
         $isTwoStep = config('authentication.two_step_login.enabled', false);
 
         // Use 'central' scope when two-step is enabled so tenantLogin() can verify token origin
@@ -291,6 +297,36 @@ class AuthController extends Controller
         }
 
         $user = $request->user();
+        $user->password = Hash::make($request->input('password'));
+        $user->save();
+
+        return $this->successResponse('Password reset successfully');
+    }
+
+    /**
+     * Reset another user's password using their UUID.
+     *
+     * @param  Request  $request
+     * @param  string  $uuid
+     * @return JsonResponse
+     */
+    public function resetOtherUserPassword(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422, $validator->errors()->first());
+        }
+
+        $userModel = config('auth.providers.users.model', \App\Models\User::class);
+        $user = $userModel::where('uuid', $uuid)->first();
+
+        if (! $user) {
+            return $this->errorResponse(['user' => ['User not found']], 404, 'User Not Found');
+        }
+
         $user->password = Hash::make($request->input('password'));
         $user->save();
 
