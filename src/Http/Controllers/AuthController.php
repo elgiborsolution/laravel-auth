@@ -298,6 +298,7 @@ class AuthController extends Controller
 
         $user = $request->user();
         $user->password = Hash::make($request->input('password'));
+        $user->password_changed_at = now();
         $user->save();
 
         return $this->successResponse('Password reset successfully');
@@ -328,6 +329,7 @@ class AuthController extends Controller
         }
 
         $user->password = Hash::make($request->input('password'));
+        $user->password_changed_at = now();
         $user->save();
 
         return $this->successResponse('Password reset successfully');
