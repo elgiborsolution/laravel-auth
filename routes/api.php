@@ -3,6 +3,7 @@
 use ElgiborSolution\Authentication\Http\Controllers\AuthController;
 use ElgiborSolution\Authentication\Http\Controllers\PermissionController;
 use ElgiborSolution\Authentication\Http\Controllers\RoleController;
+use ElgiborSolution\Authentication\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('api/login', [AuthController::class, 'login']);
@@ -22,6 +23,8 @@ Route::middleware('auth:api')->group(function () {
         );
 
     }
+
+    Route::get('api/user/password-status/{uuid}', [UserController::class, 'passwordStatus']);
 
     // Roles
     Route::apiResource('api/roles', RoleController::class);
