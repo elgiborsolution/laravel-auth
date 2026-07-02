@@ -23,6 +23,7 @@ class Permission extends Model
         'description',
         'status',
         'context',
+        'access_type',
     ];
 
     /**
