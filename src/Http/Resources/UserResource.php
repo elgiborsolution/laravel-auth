@@ -43,8 +43,8 @@ class UserResource extends JsonResource
 
             if (! $tenantId) {
                 $token = $request->user()?->token();
-                if ($token instanceof \Laravel\Passport\Token && $token->name !== null && str_starts_with($token->name, 'tenant-access:')) {
-                    $tenantId = str_replace('tenant-access:', '', $token->name);
+                if ($token !== null && isset($token->name) && str_starts_with((string) $token->name, 'tenant-access:')) {
+                    $tenantId = str_replace('tenant-access:', '', (string) $token->name);
                 }
             }
 
