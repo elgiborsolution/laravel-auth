@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('permissions', function (Blueprint $table) {
             if (! Schema::hasColumn('permissions', 'access_type')) {
-                $table->enum('access_type', ['ho', 'tenant', 'all'])->default('all')->after('context');
+                $table->enum('access_type', ['global', 'tenant', 'all'])->default('all')->after('context');
             }
         });
     }
