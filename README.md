@@ -95,7 +95,13 @@ return [
     'login_extra_fields' => [],
     
     // Automatically eager-load relationships when calling the `/me` endpoint
-    'load_relations' => ['profile', 'agency'], 
+    'load_relations' => ['profile', 'agency'],
+
+    // Toggle tenant data in the `/me` response
+    'two_step_login' => [
+        'enabled' => false,
+        'include_tenant_in_response' => true,
+    ],
 ];
 ```
 
@@ -162,7 +168,7 @@ curl -X POST http://your-app/api/login \
 ```
 
 ### 3. Fetch User Profile
-Retrieve the authenticated user's profile, including their flattened permissions array and active tenant object:
+Retrieve the authenticated user's profile, including their flattened permissions array and, when enabled, the tenant object:
 
 ```bash
 curl http://your-app/api/auth/me \

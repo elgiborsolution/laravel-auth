@@ -180,8 +180,8 @@ class AuthController extends Controller
             $loadRelations[] = $relation;
         }
 
-        // Auto-load tenant relation when two-step login is enabled
-        if (config('authentication.two_step_login.enabled', false)) {
+        // Auto-load tenant relation only when the response is configured to include tenant data
+        if (config('authentication.two_step_login.enabled', false) && config('authentication.two_step_login.include_tenant_in_response', true)) {
             $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
             if (method_exists($user, $tenantRelation) && ! in_array($tenantRelation, $loadRelations)) {
                 $loadRelations[] = $tenantRelation;

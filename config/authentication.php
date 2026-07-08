@@ -92,6 +92,7 @@ return [
     |   enabled                   : bool   — toggle the feature (false = single-step only)
     |   tenant_login_path          : string — URI path for step 2
     |   include_tenants_on_login   : bool   — include tenant list in step 1 response
+    |   include_tenant_in_response : bool   - include tenant relation/object in /me response
     |   tenant_relation            : string — relation method name on User model
     |
     | Note: Requires the User model to have a `tenants()` relation when enabled.
@@ -102,6 +103,7 @@ return [
         'enabled' => false,
         'tenant_login_path' => 'api/tenant-login',
         'include_tenants_on_login' => true,
+        'include_tenant_in_response' => true,
         'tenant_relation' => 'tenants',
     ],
 

@@ -27,51 +27,56 @@ class UserResource extends JsonResource
             unset($data['role']['permissions']);
         }
 
-        // 2. Include active tenant data (if stancl/tenancy is used and initialized)
-        if (function_exists('tenant') && tenant()) {
-            $data['tenant'] = tenant()->toArray();
-        }
+        // 2. Include tenant data only when enabled in config
+        $includeTenantInResponse = config('authentication.two_step_login.include_tenant_in_response', true);
+        $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
 
-        // 3. Include only the logged-in tenant when two-step login is enabled
-        if (config('authentication.two_step_login.enabled', false)) {
-            $tenantRelation = config('authentication.two_step_login.tenant_relation', 'tenants');
-
-            $tenantId = null;
+        if ($includeTenantInResponse) {
+            // Include active tenant data (if stancl/tenancy is used and initialized)
             if (function_exists('tenant') && tenant()) {
-                $tenantId = tenant('id');
+                $data['tenant'] = tenant()->toArray();
             }
 
-            if (! $tenantId) {
-                $token = $request->user()?->token();
-                if ($token !== null && isset($token->name) && str_starts_with((string) $token->name, 'tenant-access:')) {
-                    $tenantId = str_replace('tenant-access:', '', (string) $token->name);
+            // Include only the logged-in tenant when two-step login is enabled
+            if (config('authentication.two_step_login.enabled', false)) {
+                $tenantId = null;
+                if (function_exists('tenant') && tenant()) {
+                    $tenantId = tenant('id');
                 }
-            }
 
-            if ($tenantId && $this->resource instanceof Model && $this->resource->relationLoaded($tenantRelation)) {
-                $relationData = $this->{$tenantRelation};
-
-                if ($relationData instanceof Model) {
-                    if ((string) $relationData->getKey() === (string) $tenantId) {
-                        $data['tenant'] = $relationData->toArray();
-                    }
-                } elseif ($relationData !== null) {
-                    $tenant = collect($relationData)->first(function ($t) use ($tenantId) {
-                        $id = $t instanceof Model ? $t->getKey() : ($t['id'] ?? null);
-
-                        return (string) $id === (string) $tenantId;
-                    });
-                    if ($tenant) {
-                        $data['tenant'] = $tenant instanceof Model
-                            ? $tenant->toArray()
-                            : (array) $tenant;
+                if (! $tenantId) {
+                    $token = $request->user()?->token();
+                    if ($token !== null && isset($token->name) && str_starts_with((string) $token->name, 'tenant-access:')) {
+                        $tenantId = str_replace('tenant-access:', '', (string) $token->name);
                     }
                 }
-            }
 
-            // Remove the full tenants relation list from the response
-            unset($data[$tenantRelation]);
+                if ($tenantId && $this->resource instanceof Model && $this->resource->relationLoaded($tenantRelation)) {
+                    $relationData = $this->{$tenantRelation};
+
+                    if ($relationData instanceof Model) {
+                        if ((string) $relationData->getKey() === (string) $tenantId) {
+                            $data['tenant'] = $relationData->toArray();
+                        }
+                    } elseif ($relationData !== null) {
+                        $tenant = collect($relationData)->first(function ($t) use ($tenantId) {
+                            $id = $t instanceof Model ? $t->getKey() : ($t['id'] ?? null);
+
+                            return (string) $id === (string) $tenantId;
+                        });
+                        if ($tenant) {
+                            $data['tenant'] = $tenant instanceof Model
+                                ? $tenant->toArray()
+                                : (array) $tenant;
+                        }
+                    }
+                }
+            }
+        } else {
+            unset($data['tenant']);
         }
+
+        unset($data[$tenantRelation]);
 
         // 4. Include any other dynamically configured relations
         $relations = config('authentication.load_relations', []);
