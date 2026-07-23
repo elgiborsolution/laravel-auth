@@ -18,13 +18,56 @@ class UserResource extends JsonResource
     {
         $data = parent::toArray($request);
 
-        // 1. Flatten permissions and remove them from the nested 'role' relation
-        if (isset($data['role']) && isset($data['role']['permissions'])) {
-            // Extract only the permission names
-            $data['permissions'] = collect($data['role']['permissions'])->pluck('name')->toArray();
+        // 1. Flatten permissions, remove them from the nested 'role' relation, and update role context dynamically
+        if (isset($data['role']) && is_array($data['role'])) {
+            $token = $request->user()?->token();
+            $isTenantToken = false;
+            $tenantId = null;
 
-            // Remove the nested permissions array from the role object
-            unset($data['role']['permissions']);
+            if ($token) {
+                $tokenName = (string) ($token->name ?? '');
+                if (str_starts_with($tokenName, 'tenant-access:')) {
+                    $isTenantToken = true;
+                    $tenantId = str_replace('tenant-access:', '', $tokenName);
+                } elseif ($request->user()?->tokenCan('tenant') ?? false) {
+                    $isTenantToken = true;
+                }
+            }
+
+            $isTenantActive = function_exists('tenant') && tenant() !== null;
+
+            if ($isTenantToken || $isTenantActive) {
+                $tenant = function_exists('tenant') ? tenant() : null;
+
+                if (! $tenant && ! empty($tenantId) && class_exists('\App\Models\Tenant')) {
+                    $tenant = \App\Models\Tenant::find($tenantId);
+                }
+
+                $isHoTenant = false;
+                if ($tenant) {
+                    if (method_exists($tenant, 'isHeadOffice')) {
+                        $isHoTenant = $tenant->isHeadOffice();
+                    } else {
+                        $code = strtoupper((string) ($tenant->code ?? ''));
+                        $name = strtoupper((string) ($tenant->name ?? ''));
+                        $isHoTenant = ((bool) ($tenant->is_ho ?? false)) || $code === 'HO' || str_contains($name, 'HEAD OFFICE');
+                    }
+                }
+
+                if (! $isHoTenant) {
+                    $data['role']['context'] = 'tenant';
+                } else {
+                    $data['role']['context'] = 'global';
+                }
+            }
+
+            if (isset($data['role']['permissions'])) {
+                // Extract only the permission names
+                $data['permissions'] = collect($data['role']['permissions'])->pluck('name')->toArray();
+
+                // Remove the nested permissions array from the role object
+                unset($data['role']['permissions']);
+            }
         }
 
         // 2. Include tenant data only when enabled in config
