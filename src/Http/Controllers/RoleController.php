@@ -27,7 +27,8 @@ class RoleController extends Controller
         $cacheKey = "roles_list_{$keyword}_{$context}_{$isActive}_{$perPage}_page_".($page ?? 'all');
 
         $roles = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($request, $keyword, $context, $isActive, $perPage) {
-            $query = Role::with('permissions:id,name,description,status');
+            $query = Role::with('permissions:id,name,description,status')
+                ->withCount(['users as user_count']);
 
             if ($context) {
                 $query->where('context', $context);
@@ -38,8 +39,10 @@ class RoleController extends Controller
             }
 
             if ($keyword) {
-                $query->where('role_name', 'like', "%{$keyword}%")
-                    ->orWhere('role_description', 'like', "%{$keyword}%");
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('role_name', 'like', "%{$keyword}%")
+                        ->orWhere('role_description', 'like', "%{$keyword}%");
+                });
             }
 
             if ($request->has('page') && ! empty($request->query('page'))) {
@@ -75,7 +78,7 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse('Role created successfully', $role->load('permissions:id,name,description,status'), 201);
+        return $this->successResponse('Role created successfully', $role->load('permissions:id,name,description,status')->loadCount(['users as user_count']), 201);
     }
 
     /**
@@ -86,7 +89,9 @@ class RoleController extends Controller
         $cacheKey = "role_detail_{$id}";
 
         $role = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($id) {
-            return Role::with('permissions:id,name,description,status')->find($id);
+            return Role::with('permissions:id,name,description,status')
+                ->withCount(['users as user_count'])
+                ->find($id);
         });
 
         if (! $role) {
@@ -125,7 +130,7 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse('Role updated successfully', $role->load('permissions:id,name,description,status'));
+        return $this->successResponse('Role updated successfully', $role->load('permissions:id,name,description,status')->loadCount(['users as user_count']));
     }
 
     /**
@@ -163,6 +168,6 @@ class RoleController extends Controller
 
         Cache::flush(); // Flush roles cache
 
-        return $this->successResponse('Role status updated successfully', $role);
+        return $this->successResponse('Role status updated successfully', $role->load('permissions:id,name,description,status')->loadCount(['users as user_count']));
     }
 }

@@ -37,6 +37,7 @@ class Role extends Model
         'default' => 'boolean',
         'can_delete' => 'boolean',
         'is_active' => 'boolean',
+        'user_count' => 'integer',
     ];
 
     /**
@@ -50,5 +51,31 @@ class Role extends Model
             'roles_id',
             'permissions_id'
         );
+    }
+
+    /**
+     * Get the users associated with the role.
+     */
+    public function users()
+    {
+        $userModel = config('auth.providers.users.model') ?: User::class;
+
+        return $this->hasMany($userModel, 'roles_id');
+    }
+
+    /**
+     * Get user count attribute.
+     */
+    public function getUserCountAttribute()
+    {
+        if (array_key_exists('user_count', $this->attributes)) {
+            return (int) $this->attributes['user_count'];
+        }
+
+        if ($this->relationLoaded('users')) {
+            return $this->users->count();
+        }
+
+        return 0;
     }
 }
