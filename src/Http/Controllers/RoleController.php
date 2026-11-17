@@ -66,6 +66,8 @@ class RoleController extends Controller
             'default' => 'boolean',
             'can_delete' => 'boolean',
             'login_destination' => 'string|max:150',
+            'context' => 'sometimes|required|in:global,tenant',
+            'is_active' => 'sometimes|boolean',
             'permissions' => 'nullable|array',
             'permissions.*' => 'integer|exists:permissions,id',
         ]);
@@ -118,6 +120,8 @@ class RoleController extends Controller
             'default' => 'boolean',
             'can_delete' => 'boolean',
             'login_destination' => 'string|max:150',
+            'context' => 'sometimes|required|in:global,tenant',
+            'is_active' => 'sometimes|boolean',
             'permissions' => 'nullable|array',
             'permissions.*' => 'integer|exists:permissions,id',
         ]);
