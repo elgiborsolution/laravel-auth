@@ -34,7 +34,7 @@ class PermissionController extends Controller
             }
 
             if ($accessType) {
-                $query->where('access_type', $accessType);
+                $query->whereIn('access_type', array_unique([$accessType, 'all']));
             }
 
             if ($search) {
